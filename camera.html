@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>📸 ลงทะเบียนใบหน้า</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Sarabun', sans-serif;
+            text-align: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: white;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 520px;
+            margin: 0 auto;
+        }
+
+        h2 {
+            margin-bottom: 8px;
+            font-size: 22px;
+        }
+
+        .subtitle {
+            font-size: 13px;
+            color: #aaa;
+            margin-bottom: 15px;
+        }
+
+        video {
+            width: 100%;
+            max-width: 480px;
+            border-radius: 16px;
+            background: #000;
+            transform: scaleX(-1);
+            margin: 10px 0;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+        }
+
+        input {
+            padding: 14px;
+            width: 85%;
+            font-size: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-family: 'Sarabun', sans-serif;
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        input::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #28a745;
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .btn {
+            padding: 14px 28px;
+            font-size: 17px;
+            font-weight: bold;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            margin: 8px;
+            font-family: 'Sarabun', sans-serif;
+            transition: 0.2s;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            transform: scale(1.02);
+        }
+
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-capture {
+            background: linear-gradient(135deg, #28a745, #218838);
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4);
+            width: 85%;
+        }
+
+        .btn-back {
+            background: rgba(255, 255, 255, 0.15);
+            font-size: 14px;
+            padding: 10px 20px;
+            margin-top: 20px;
+            text-decoration: none;
+            color: white;
+        }
+
+        .btn-back:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        .status {
+            margin: 10px 0;
+            padding: 12px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            font-size: 14px;
+        }
+
+        .status.ok {
+            background: rgba(40, 167, 69, 0.25);
+        }
+
+        .status.err {
+            background: rgba(220, 53, 69, 0.25);
+        }
+
+        .status.warn {
+            background: rgba(255, 193, 7, 0.2);
+        }
+
+        #count {
+            font-size: 13px;
+            color: #aaa;
+            margin-top: 8px;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>📸 ลงทะเบียนใบหน้า</h2>
+        <p class="subtitle">💡 ควรบันทึก 3 มุม: หน้าตรง / หันซ้ายนิดหน่อย / หันขวานิดหน่อย</p>
+
+        <!-- ขั้นตอนที่ 1: กรอกชื่อ -->
+        <div id="step1">
+            <input type="text" id="username" placeholder="กรอกชื่อพนักงาน">
+            <br>
+            <button class="btn btn-capture" onclick="startCamera()">📸 ถัดไป → เปิดกล้อง</button>
+        </div>
+
+        <!-- ขั้นตอนที่ 2: กล้อง -->
+        <div id="step2" class="hidden">
+            <div id="status" class="status">⏳ กำลังเตรียมระบบ...</div>
+            <div id="nameDisplay" style="font-size:18px; font-weight:bold; margin:5px 0;"></div>
+            <video id="video" autoplay muted playsinline></video>
+            <div>
+                <button id="btnCapture" class="btn btn-capture" onclick="captureFace()" disabled>📸
+                    บันทึกใบหน้า</button>
+            </div>
+            <div id="count"></div>
+        </div>
+
+        <div id="backLink"></div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const statusEl = document.getElementById('status');
+        const btnCapture = document.getElementById('btnCapture');
+        const countEl = document.getElementById('count');
+        const step1 = document.getElementById('step1');
+        const step2 = document.getElementById('step2');
+
+        let captureCount = 0;
+        let userName = '';
+
+        // อ่าน GAS Script URL จาก URL parameter
+        const params = new URLSearchParams(window.location.search);
+        const scriptUrl = params.get('scriptUrl') || '';
+        const returnUrl = params.get('returnUrl') || '';
+
+        // แสดงปุ่มกลับ
+        if (returnUrl) {
+            document.getElementById('backLink').innerHTML =
+                '<a href="' + returnUrl + '" class="btn btn-back">← กลับเมนูหลัก</a>';
+        }
+
+        async function startCamera() {
+            userName = document.getElementById('username').value.trim();
+            if (!userName) {
+                alert('กรุณากรอกชื่อพนักงานก่อน');
+                return;
+            }
+
+            // สลับหน้า
+            step1.classList.add('hidden');
+            step2.classList.remove('hidden');
+            document.getElementById('nameDisplay').innerText = '👤 ' + userName;
+
+            try {
+                // 1. เปิดกล้อง
+                statusEl.innerText = '⏳ กำลังเปิดกล้อง...';
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+
+                // 2. โหลด AI Model
+                statusEl.innerText = '⏳ กำลังโหลด AI Model (ครั้งแรกอาจใช้เวลาสักครู่)...';
+                const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+                await Promise.all([
+                    faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+                ]);
+
+                statusEl.innerText = '✅ พร้อมแล้ว! มองกล้องแล้วกด "บันทึกใบหน้า"';
+                statusEl.className = 'status ok';
+                btnCapture.disabled = false;
+
+            } catch (err) {
+                statusEl.innerText = '❌ เกิดข้อผิดพลาด: ' + err.message;
+                statusEl.className = 'status err';
+            }
+        }
+
+        async function captureFace() {
+            if (!scriptUrl) {
+                alert('ไม่พบ URL ของ Script กรุณาเปิดจากหน้าเมนูหลัก');
+                return;
+            }
+
+            btnCapture.disabled = true;
+            btnCapture.innerText = '⏳ กำลังตรวจจับใบหน้า...';
+
+            try {
+                const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+
+                if (detection) {
+                    const descriptorArray = Array.from(detection.descriptor);
+
+                    // ส่งข้อมูลไปที่ GAS doPost
+                    statusEl.innerText = '⏳ กำลังบันทึกข้อมูล...';
+                    statusEl.className = 'status warn';
+
+                    const response = await fetch(scriptUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: JSON.stringify({
+                            action: 'registerFace',
+                            name: userName,
+                            descriptor: descriptorArray
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (result.status === 'ok') {
+                        captureCount++;
+                        countEl.innerText = '✅ บันทึกแล้ว ' + captureCount + ' ครั้ง — ลองขยับหน้าเล็กน้อยแล้วบันทึกเพิ่ม';
+                        statusEl.innerText = '✅ บันทึกสำเร็จ! กดบันทึกเพิ่มหรือกลับเมนูหลัก';
+                        statusEl.className = 'status ok';
+                    } else {
+                        statusEl.innerText = '❌ บันทึกไม่สำเร็จ: ' + (result.message || 'Unknown error');
+                        statusEl.className = 'status err';
+                    }
+
+                } else {
+                    statusEl.innerText = '⚠️ ไม่พบใบหน้า กรุณามองกล้องให้ชัดเจน';
+                    statusEl.className = 'status warn';
+                }
+            } catch (e) {
+                statusEl.innerText = '❌ เกิดข้อผิดพลาด: ' + e.message;
+                statusEl.className = 'status err';
+            }
+
+            btnCapture.innerText = '📸 บันทึกใบหน้า' + (captureCount > 0 ? 'เพิ่ม' : '');
+            btnCapture.disabled = false;
+        }
+    </script>
+</body>
+
+</html>
